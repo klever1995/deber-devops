@@ -13,18 +13,47 @@ jobs:
     - name: Check out the code
       uses: actions/checkout@v3
 
-    - name: Deploy to EC2
+    # Paso 1: Desplegar a la primera instancia EC2
+    - name: Deploy to EC2 - Instance 1
       uses: easingthemes/ssh-deploy@main
       env:
         SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-        REMOTE_HOST: ${{ secrets.HOST_DNS }}
+        REMOTE_HOST: ${{ secrets.HOST_DNS }}  # Usar DNS o IP pública de la primera instancia
         REMOTE_USER: ${{ secrets.EC2_USER }}
         TARGET: ${{ secrets.TARGET_DIR }}
 
-    - name: Executing remote ssh commands using ssh key
+    # Paso 2: Ejecutar comandos SSH en la primera instancia EC2
+    - name: Executing remote ssh commands on Instance 1
       uses: appleboy/ssh-action@master
       with:
-        host: ${{ secrets.HOST_DNS }}
+        host: ${{ secrets.HOST_DNS }}  # Usar DNS o IP pública de la primera instancia
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          pm2 delete my-app || echo "No existing process found"
+          cd deber-devops
+          sudo git pull origin main
+          cd devops-aws
+          sudo npm install
+          sudo npm run build
+          sudo pm2 start npm --name "my-app" -- run dev
+          sudo pm2 save
+          echo "Application is running in the background."
+
+    # Paso 3: Desplegar a la segunda instancia EC2
+    - name: Deploy to EC2 - Instance 2
+      uses: easingthemes/ssh-deploy@main
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        REMOTE_HOST: ${{ secrets.HOST_DNS_2 }}  # Usar DNS o IP pública de la segunda instancia
+        REMOTE_USER: ${{ secrets.EC2_USER }}
+        TARGET: ${{ secrets.TARGET_DIR }}
+
+    # Paso 4: Ejecutar comandos SSH en la segunda instancia EC2
+    - name: Executing remote ssh commands on Instance 2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST_DNS_2 }}  # Usar DNS o IP pública de la segunda instancia
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
